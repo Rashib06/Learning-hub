@@ -1,10 +1,10 @@
 # Task box
 An android app that allows user to note their tasks
 
-#Group 6
+# Group 6
 Dhwani Patel,Rashib
 
-#Features
+# Features
 Create a task
 Enter task name
 Enter task description
@@ -22,13 +22,13 @@ Delete all tasks
 Navigate to finished, unfinished, overdue, daily tasks from navigation bar
 Dark mode
 
-#Specs
+# Specs
 The app will target API level 29 (Android 10+) and will be built in Android studio with kotlin
 User will be the data source
 Offline functionable
 All data will be stored in firebase, locally
 
-#Out of Scope
+# Out of Scope
 Synchronization 
 Scalability 
 Integration 
