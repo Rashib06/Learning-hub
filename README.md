@@ -5,9 +5,9 @@ An android app that allows user to note their tasks
 Dhwani Patel,Rashib
 
 # Features
-.Create a task
-.Enter task name
-.Enter task description
+ Create a task
+ Enter task name
+ Enter task description
 .Select when due(optional)
 .Create reminder notifications
 .Save task
