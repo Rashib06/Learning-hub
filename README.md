@@ -12,7 +12,7 @@ An android app that allows user to note their tasks
  - Create reminder notifications
  - Save task
  - Edit task
- - Task completed
+ - Checked/unchecked task
  - Delete a task
  - Add daily tasks
  - Task history
