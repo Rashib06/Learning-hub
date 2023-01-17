@@ -19,7 +19,7 @@ An android app that allows user to note their tasks
  - Add priority tags
  - Search task by keyword, tag
  - Delete all tasks
- - Navigate to finished, unfinished, overdue, daily tasks from navigation bar
+ - Navigate to finished, unfinished, overdue, daily tasks from menu bar
  - Dark mode
 
 # Specs
