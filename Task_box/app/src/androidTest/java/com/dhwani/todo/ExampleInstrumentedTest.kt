@@ -1,4 +1,4 @@
-package com.example.task_box
+package com.dhwani.todo
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.example.task_box", appContext.packageName)
+        assertEquals("com.dhwani.todo", appContext.packageName)
     }
 }
