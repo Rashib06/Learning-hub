@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/menu_my_weekly_task"
+        android:title="My weekly task" />
+    <item
+        android:id="@+id/menu_today"
+        android:title="Today's Task" />
+    <item
+        android:id="@+id/menu_dark"
+        android:title="Dark mode"
+        android:visibility="visible"
+        app:actionViewClass="androidx.appcompat.widget.SwitchCompat" />
+
+</menu>
