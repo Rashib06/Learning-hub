@@ -3,11 +3,14 @@ package com.dhwani.todo
 import android.app.Dialog
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.View
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.Toast
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.dhwani.todo.adapter.FilteredTaskListAdapter
@@ -21,8 +24,19 @@ class FilteredTaskListActivity : AppCompatActivity() {
 
     lateinit var rvTaskList: RecyclerView
     lateinit var ivBack: ImageView
+    lateinit var ivSearch: ImageView
+    lateinit var tvTitle: TextView
+    lateinit var etSearch: EditText
     lateinit var fireStore: FirebaseFirestore
-    var myWeeklyTask = false
+    private var myWeeklyTask: Int = 0
+
+    override fun onBackPressed() {
+        if (etSearch.visibility == View.VISIBLE) {
+            manageSearchVisibility(false)
+        } else {
+            super.onBackPressed()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,11 +46,14 @@ class FilteredTaskListActivity : AppCompatActivity() {
 
         rvTaskList = findViewById(R.id.rvTaskList)
         ivBack = findViewById(R.id.ivBack)
+        ivSearch = findViewById(R.id.ivSearch)
+        tvTitle = findViewById(R.id.tvTitle)
+        etSearch = findViewById(R.id.etSearch)
 
-        myWeeklyTask = intent.getBooleanExtra("MYWEEKLYTASK", false)
+        myWeeklyTask = intent.getIntExtra("MYWEEKLYTASK", 1)
 
         Listeners()
-        createTaskListRecyclerView()
+        createTaskListRecyclerView(getTaskList(""))
 
     }
 
@@ -44,16 +61,39 @@ class FilteredTaskListActivity : AppCompatActivity() {
         ivBack.setOnClickListener {
             onBackPressed()
         }
+
+        ivSearch.setOnClickListener {
+            if (etSearch.visibility == View.VISIBLE) {
+                manageSearchVisibility(false)
+            } else {
+                manageSearchVisibility(true)
+            }
+        }
+
+        etSearch.doOnTextChanged { text, start, before, count ->
+            createTaskListRecyclerView(getTaskList(text.toString()) ?: ArrayList())
+        }
     }
 
-    private fun createTaskListRecyclerView() {
-        val arl = getTaskList()
+    fun manageSearchVisibility(show: Boolean) {
+        if (show) {
+            etSearch.visibility = View.VISIBLE
+            tvTitle.visibility = View.GONE
+            ivSearch.visibility = View.GONE
+        } else {
+            etSearch.visibility = View.GONE
+            tvTitle.visibility = View.VISIBLE
+            ivSearch.visibility = View.VISIBLE
+        }
+    }
+
+    private fun createTaskListRecyclerView(arl: ArrayList<FilteredTask>) {
         rvTaskList.adapter = FilteredTaskListAdapter(arl)
         rvTaskList.layoutManager = LinearLayoutManager(this)
     }
 
-    fun getTaskList(): ArrayList<FilteredTask> {
-        if (myWeeklyTask) {
+    fun getTaskList(search: String): ArrayList<FilteredTask> {
+        if (myWeeklyTask == 0) {
             val cal = Calendar.getInstance()
             cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
             val start = cal.getTimeInMillis()
@@ -63,22 +103,46 @@ class FilteredTaskListActivity : AppCompatActivity() {
             MyApplication.allData.taskList.forEach { it ->
                 it.arlTaskDetails.forEach { singleTask ->
                     if (singleTask.dueDateTime in start..end) {
-                        arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                        if (search.isEmpty()) {
+                            arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                        } else {
+                            if (singleTask.name.lowercase().contains(search)) {
+                                arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                            }
+                        }
+                    }
+                }
+            }
+            return arl
+        } else if (myWeeklyTask == 1) {
+            val arl = ArrayList<FilteredTask>()
+            MyApplication.allData.taskList.forEach { it ->
+                it.arlTaskDetails.forEach { singleTask ->
+                    if (DateTimeUtils.isToday(DateTimeUtils.formatDate(singleTask.dueDateTime, DateTimeUnits.MILLISECONDS))) {
+                        if (search.isEmpty()) {
+                            arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                        } else {
+                            if (singleTask.name.lowercase().contains(search)) {
+                                arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                            }
+                        }
                     }
                 }
             }
             return arl
         } else {
-            val arl = ArrayList<FilteredTask>()
-            MyApplication.allData.taskList.forEach { it ->
-                it.arlTaskDetails.forEach { singleTask ->
-                    if (DateTimeUtils.isToday(DateTimeUtils.formatDate(singleTask.dueDateTime, DateTimeUnits.MILLISECONDS))) {
-                        arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
-                    }
-                }
-            }
-            return arl
+            val c = Calendar.getInstance()
+            c[Calendar.DAY_OF_MONTH] = 1
+            val firstTimeStamp = c.timeInMillis
+
+//            val givenDate: LocalDate = LocalDate.parse(newDate, DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+//            val lastDayOfMonthDateGivenDate: LocalDate = givenDate.withDayOfMonth(givenDate.getMonth().length(givenDate.isLeapYear()))
+//            val lastCal = dates.parse(lastDayOfMonthDateGivenDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
+
+
         }
+
+        return ArrayList()
     }
 
     var prgDialog: Dialog? = null
