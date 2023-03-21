@@ -87,11 +87,17 @@ class MainActivity : AppCompatActivity() {
             when (it.itemId) {
                 R.id.menu_my_weekly_task -> {
                     val i = Intent(this@MainActivity, FilteredTaskListActivity::class.java)
-                    i.putExtra("MYWEEKLYTASK", true)
+                    i.putExtra("MYWEEKLYTASK", 0)
                     startActivity(i)
                 }
                 R.id.menu_today -> {
                     val i = Intent(this@MainActivity, FilteredTaskListActivity::class.java)
+                    i.putExtra("MYWEEKLYTASK", 1)
+                    startActivity(i)
+                }
+                R.id.menu_monthly -> {
+                    val i = Intent(this@MainActivity, FilteredTaskListActivity::class.java)
+                    i.putExtra("MYWEEKLYTASK", 2)
                     startActivity(i)
                 }
             }
@@ -141,7 +147,7 @@ class MainActivity : AppCompatActivity() {
             addListToFirebase(etToDo.text.toString(), taskName)
         }
 
-        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.8).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     fun editTaskName(taskName: String) {
@@ -179,7 +185,6 @@ class MainActivity : AppCompatActivity() {
             e.printStackTrace()
         }
     }
-
 
     /*
     * Firebase call
