@@ -32,6 +32,7 @@ import com.github.thunder413.datetimeutils.DateTimeUtils
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
 import com.google.firebase.firestore.FirebaseFirestore
+import com.livinglifetechway.quickpermissions_kotlin.runWithPermissions
 import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
@@ -44,24 +45,16 @@ class MainActivity : AppCompatActivity() {
     lateinit var navMenu: NavigationView
     var isInitialLoadingComplete = false
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-
-        // get start of this week in milliseconds
-        val cal = Calendar.getInstance()
-        cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
-        Log.e("TAG", "Start of this week:       " + cal.getTime())
-        Log.e("TAG", "... in milliseconds:      " + DateTimeUtils.isToday(DateTimeUtils.formatDate(1676744375663, DateTimeUnits.MILLISECONDS)));
-
-        cal.set(Calendar.DAY_OF_WEEK, Calendar.SATURDAY)
-        Log.e("TAG", "Start of this week:       " + cal.getTime())
-        Log.e("TAG", "... in milliseconds:      " + cal.getTimeInMillis());
-
         fireStore = FirebaseFirestore.getInstance()
 
+        makePermission()
+    }
+
+    private fun makePermission() = runWithPermissions(android.Manifest.permission.POST_NOTIFICATIONS) {
         findViews()
         clickListeners()
         loadFireStoreData()
@@ -88,11 +81,27 @@ class MainActivity : AppCompatActivity() {
             when (it.itemId) {
                 R.id.menu_my_weekly_task -> {
                     val i = Intent(this@MainActivity, FilteredTaskListActivity::class.java)
-                    i.putExtra("MYWEEKLYTASK", true)
+                    i.putExtra("MYWEEKLYTASK", 0)
                     startActivity(i)
                 }
                 R.id.menu_today -> {
                     val i = Intent(this@MainActivity, FilteredTaskListActivity::class.java)
+                    i.putExtra("MYWEEKLYTASK", 1)
+                    startActivity(i)
+                }
+                R.id.menu_monthly -> {
+                    val i = Intent(this@MainActivity, FilteredTaskListActivity::class.java)
+                    i.putExtra("MYWEEKLYTASK", 2)
+                    startActivity(i)
+                }
+                R.id.menu_history -> {
+                    val i = Intent(this@MainActivity, FilteredTaskListActivity::class.java)
+                    i.putExtra("MYWEEKLYTASK", 3)
+                    startActivity(i)
+                }
+                R.id.menu_to_do -> {
+                    val i = Intent(this@MainActivity, FilteredTaskListActivity::class.java)
+                    i.putExtra("MYWEEKLYTASK", 4)
                     startActivity(i)
                 }
             }
@@ -142,7 +151,7 @@ class MainActivity : AppCompatActivity() {
             addListToFirebase(etToDo.text.toString(), taskName)
         }
 
-        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.8).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     fun editTaskName(taskName: String) {
@@ -181,7 +190,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     /*
     * Firebase call
     *
@@ -198,11 +206,13 @@ class MainActivity : AppCompatActivity() {
                         val arl = ArrayList<TaskDetails>()
                         try {
                             for (tl in t.get("arlTaskDetails") as ArrayList<*>) {
+                                val p: Int = (tl as java.util.HashMap<*, *>).get("priority").toString().toInt()
                                 val n: String = (tl as HashMap<*, *>).get("name").toString()
                                 val c = (tl).get("completed").toString().toBoolean()
                                 val d = tl.get("dueDateTime").toString().toLong()
-                                Log.e("TAG", "loadFireStoreData: ${arl.size} :: ${n} :: ${c}")
-                                arl.add(TaskDetails(n, c, d))
+                                val noti = tl.get("notifiable").toString().toBoolean()
+                                val id = tl.get("id").toString().toInt()
+                                arl.add(TaskDetails(p, n, c, d, noti,id))
                             }
                         } catch (e: java.lang.Exception) {
                             e.printStackTrace()

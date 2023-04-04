@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/menu_my_weekly_task"
+        android:title="My weekly task" />
+    <item
+        android:id="@+id/menu_today"
+        android:title="Today's Task" />
+    <item
+        android:id="@+id/menu_monthly"
+        android:title="Monthly Task" />
+    <item
+        android:id="@+id/menu_history"
+        android:title="My Task History" />
+    <item
+        android:id="@+id/menu_to_do"
+        android:title="To Do Tasks" />
+    <item
+        android:id="@+id/menu_dark"
+        android:title="Dark mode"
+        app:actionViewClass="androidx.appcompat.widget.SwitchCompat" />
+</menu>

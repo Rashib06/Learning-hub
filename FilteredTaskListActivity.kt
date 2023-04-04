@@ -4,11 +4,9 @@ import android.app.Dialog
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.util.Log
 import android.view.View
-import android.widget.EditText
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.TextView
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doOnTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -96,6 +94,9 @@ class FilteredTaskListActivity : AppCompatActivity() {
         if (myWeeklyTask == 0) {
             val cal = Calendar.getInstance()
             cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
+            cal[Calendar.HOUR_OF_DAY] = 0
+            cal[Calendar.MINUTE] = 0
+            cal[Calendar.SECOND] = 0
             val start = cal.getTimeInMillis()
             cal.set(Calendar.DAY_OF_WEEK, Calendar.SATURDAY)
             val end = cal.getTimeInMillis()
@@ -130,19 +131,119 @@ class FilteredTaskListActivity : AppCompatActivity() {
                 }
             }
             return arl
-        } else {
+        } else if (myWeeklyTask == 2) {
             val c = Calendar.getInstance()
             c[Calendar.DAY_OF_MONTH] = 1
-            val firstTimeStamp = c.timeInMillis
-
-//            val givenDate: LocalDate = LocalDate.parse(newDate, DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-//            val lastDayOfMonthDateGivenDate: LocalDate = givenDate.withDayOfMonth(givenDate.getMonth().length(givenDate.isLeapYear()))
-//            val lastCal = dates.parse(lastDayOfMonthDateGivenDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
-
-
+            c[Calendar.HOUR_OF_DAY] = 0
+            c[Calendar.MINUTE] = 0
+            c[Calendar.SECOND] = 0
+            val start = c.timeInMillis
+            c[Calendar.DAY_OF_MONTH] = c.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val end = c.timeInMillis
+            Log.e("TAG", "getTaskList: $start :: end : $end ")
+            val arl = ArrayList<FilteredTask>()
+            MyApplication.allData.taskList.forEach { it ->
+                it.arlTaskDetails.forEach { singleTask ->
+                    Log.e("TAG", "getTaskList: task time : ${singleTask.dueDateTime}")
+                    if (singleTask.dueDateTime in start..end) {
+                        if (search.isEmpty()) {
+                            arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                        } else {
+                            if (singleTask.name.lowercase().contains(search)) {
+                                arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                            }
+                        }
+                    }
+                }
+            }
+            return arl
+        } else if (myWeeklyTask == 3) {
+            val arl = ArrayList<FilteredTask>()
+            MyApplication.allData.taskList.forEach { it ->
+                it.arlTaskDetails.forEach { singleTask ->
+                    if (singleTask.isCompleted) {
+                        if (search.isEmpty()) {
+                            arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                        } else {
+                            if (singleTask.name.lowercase().contains(search)) {
+                                arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                            }
+                        }
+                    }
+                }
+            }
+            return arl
+        } else if (myWeeklyTask == 4) {
+            val arl = ArrayList<FilteredTask>()
+            MyApplication.allData.taskList.forEach { it ->
+                it.arlTaskDetails.forEach { singleTask ->
+                    if (!singleTask.isCompleted) {
+                        if (search.isEmpty()) {
+                            arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                        } else {
+                            if (singleTask.name.lowercase().contains(search)) {
+                                arl.add(FilteredTask(it.taskName, singleTask.name, singleTask.isCompleted, singleTask.dueDateTime))
+                            }
+                        }
+                    }
+                }
+            }
+            return arl
         }
-
         return ArrayList()
+    }
+
+    fun checkUnCheckTask(task: FilteredTask, isCompleted: Boolean) {
+        showProgressDialog()
+        MyApplication.allData.taskList.find {
+            it.taskName == task.taskHeading
+        }?.arlTaskDetails?.find {
+            it.name == task.taskName
+        }?.isCompleted = isCompleted
+
+        Log.e("TAG", "checkUnCheckTask: ${MyApplication.allData} :: comp : ${isCompleted}")
+
+        fireStore.collection(MyApplication.TO_DO_LIST).document(MyApplication.getAndroidId(this)).set(MyApplication.allData).addOnCompleteListener {
+            Log.e("TAG", "addListToFirebase: complete")
+            loadFireStoreData()
+            dismissProgressDialog()
+        }.addOnFailureListener {
+            dismissProgressDialog()
+            Log.e("TAG", "addListToFirebase: failed: ")
+            Toast.makeText(this, "Something went wrong...", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun loadFireStoreData() {
+        showProgressDialog()
+        fireStore.collection(MyApplication.TO_DO_LIST).document(MyApplication.getAndroidId(this))
+            .get().addOnCompleteListener {
+                MyApplication.allData.taskList.clear()
+                try {
+                    for (t in (it.result.get("taskList") as java.util.ArrayList<*>)) {
+                        val taskName = (t as HashMap<*, *>).get("taskName").toString()
+                        val arl = java.util.ArrayList<TaskDetails>()
+                        for (tl in t.get("arlTaskDetails") as java.util.ArrayList<*>) {
+                            val p: Int = (tl as HashMap<*, *>).get("priority").toString().toInt()
+                            val n: String = (tl as HashMap<*, *>).get("name").toString()
+                            val c = (tl).get("completed").toString().toBoolean()
+                            val d = tl.get("dueDateTime").toString().toLong()
+                            val noti = tl.get("notifiable").toString().toBoolean()
+                            val id = tl.get("id").toString().toInt()
+                            arl.add(TaskDetails(p, n, c, d, noti,id))
+                        }
+                        val single = SingleTask(taskName, arl)
+                        MyApplication.allData.taskList.add(single)
+                    }
+                } catch (e: java.lang.Exception) {
+                    e.printStackTrace()
+                }
+                createTaskListRecyclerView(getTaskList(""))
+                dismissProgressDialog()
+            }.addOnFailureListener() {
+                dismissProgressDialog()
+                Toast.makeText(this, "Something went wrong...", Toast.LENGTH_SHORT).show()
+            }
     }
 
     var prgDialog: Dialog? = null
