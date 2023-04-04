@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="20dp"
+    app:cardBackgroundColor="@color/white"
+    app:cardCornerRadius="5dp"
+    app:cardUseCompatPadding="true"
+    app:contentPadding="8dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/cl"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <CheckBox
+            android:id="@+id/cbCompleted"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginStart="1dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tvTask"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="5dp"
+            android:layout_marginTop="8dp"
+            android:ellipsize="end"
+            android:gravity="center_vertical"
+            android:singleLine="true"
+            android:textColor="@color/black"
+            android:textSize="18sp"
+            app:layout_constraintEnd_toStartOf="@+id/ivAlarm"
+            app:layout_constraintStart_toEndOf="@+id/cbCompleted"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="This is sample task" />
+
+
+        <ImageView
+            android:id="@+id/ivAlarm"
+            android:layout_width="wrap_content"
+            android:layout_height="0dp"
+            android:layout_marginEnd="10dp"
+            android:src="@drawable/ic_alarm"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/ivDelete"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <ImageView
+            android:id="@+id/ivDelete"
+            android:layout_width="wrap_content"
+            android:layout_height="0dp"
+            android:src="@drawable/ic_delete"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tvDueDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="DueDate : "
+            android:textColor="@color/black"
+            android:textSize="16dp"
+            app:layout_constraintStart_toStartOf="@+id/tvTask"
+            app:layout_constraintTop_toBottomOf="@+id/tvTask" />
+
+        <TextView
+            android:id="@+id/tvDueTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="DueDate : "
+            android:textColor="@color/black"
+            android:textSize="16dp"
+            app:layout_constraintStart_toEndOf="@+id/tvDueDate"
+            app:layout_constraintTop_toTopOf="@+id/tvDueDate" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.cardview.widget.CardView>

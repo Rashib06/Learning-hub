@@ -1,7 +1,10 @@
 package com.dhwani.todo
 
-import android.app.DatePickerDialog
+import android.app.AlarmManager
 import android.app.Dialog
+import android.app.PendingIntent
+import android.app.PendingIntent.FLAG_IMMUTABLE
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
@@ -11,6 +14,7 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doOnTextChanged
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.dhwani.todo.MyApplication.Companion.TO_DO_LIST
@@ -19,12 +23,23 @@ import com.dhwani.todo.MyApplication.Companion.getAndroidId
 import com.dhwani.todo.adapter.TaskListAdapter
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.firebase.firestore.FirebaseFirestore
-import java.text.SimpleDateFormat
-import java.time.LocalDate
+import com.google.gson.Gson
+import com.kunzisoft.switchdatetime.SwitchDateTimeDialogFragment
+import com.kunzisoft.switchdatetime.SwitchDateTimeDialogFragment.OnButtonClickListener
+import com.pixplicity.easyprefs.library.Prefs
 import java.util.*
 import kotlin.collections.ArrayList
 
+
 class TaskListActivity : AppCompatActivity() {
+
+    companion object {
+        val ALARMS = "canceled_alarm"
+        val TASK = "TASK"
+        val ids = "ids"
+        val name = "name"
+        val split = "|||||"
+    }
 
     lateinit var rvTaskList: RecyclerView
     lateinit var btnAdd: FloatingActionButton
@@ -35,6 +50,7 @@ class TaskListActivity : AppCompatActivity() {
     lateinit var etSearch: EditText
     var taskName: String? = null
     lateinit var fireStore: FirebaseFirestore
+    var pendingIntent: PendingIntent? = null
 
     override fun onBackPressed() {
         if (etSearch.visibility == View.VISIBLE) {
@@ -61,7 +77,7 @@ class TaskListActivity : AppCompatActivity() {
         ivDeleteAll = findViewById(R.id.ivDelete)
 
         Listeners()
-        createTaskListRecyclerView(getTaskList("") ?: ArrayList())
+        createTaskListRecyclerView(getTaskList("") ?: emptyList())
     }
 
     private fun Listeners() {
@@ -127,38 +143,98 @@ class TaskListActivity : AppCompatActivity() {
         dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
-    fun getTaskList(search: String): ArrayList<TaskDetails>? {
+    fun getTaskList(search: String): List<TaskDetails>? {
         return if (search.isEmpty()) {
             allData.taskList.find {
                 it.taskName == taskName
-            }?.arlTaskDetails
+            }?.arlTaskDetails?.sortedBy {
+                it.priority
+            }?.toList()
         } else {
             allData.taskList.find {
                 it.taskName == taskName
             }?.arlTaskDetails?.filter {
                 it.name.lowercase().contains(search.lowercase())
-            } as ArrayList<TaskDetails>
+            }?.sortedBy {
+                it.priority
+            }?.toList()
         }
     }
 
-    private fun createTaskListRecyclerView(arl: ArrayList<TaskDetails>) {
-        rvTaskList.adapter = TaskListAdapter(arl)
-        rvTaskList.layoutManager = LinearLayoutManager(this)
+    var adp: TaskListAdapter? = null
+    private fun createTaskListRecyclerView(arl: List<TaskDetails>) {
+        if (adp == null) {
+            adp = TaskListAdapter() {
+                Log.e("TAG", "createTaskListRecyclerView: adp: ${it.joinToString()}")
+                priorityChanged(it)
+            }
+            rvTaskList.adapter = adp
+            rvTaskList.layoutManager = LinearLayoutManager(this)
+
+            /*val helper = RecyclerHelper<TaskDetails>(arl, adp as RecyclerView.Adapter<RecyclerView.ViewHolder>)
+            helper
+                .setRecyclerItemDragEnabled(true)
+                .setRecyclerItemSwipeEnabled(false)
+                .setOnDragItemListener(object : OnDragListener {
+                    override fun onDragItemListener(fromPosition: Int, toPosition: Int) {
+                        Collections.swap(arl, fromPosition, toPosition)
+                        arl.forEachIndexed { index, taskDetails ->
+                            taskDetails.priority = index + 1
+                        }
+                        priorityChanged(arl)
+                    }
+                })
+            val itemTouchHelper = ItemTouchHelper(helper)
+            itemTouchHelper.attachToRecyclerView(rvTaskList)*/
+
+            val swipeAndDragHelper = SwipeAndDragHelper(adp!!)
+            val touchHelper = ItemTouchHelper(swipeAndDragHelper)
+            touchHelper.attachToRecyclerView(rvTaskList)
+        }
+        adp?.setData(arl)
     }
 
     fun pickDateAndTime(task: TaskDetails) {
         val c = Calendar.getInstance()
         c.timeInMillis = task.dueDateTime
-        val year = c.get(Calendar.YEAR)
-        val month = c.get(Calendar.MONTH)
-        val day = c.get(Calendar.DAY_OF_MONTH)
-        DatePickerDialog(this, { view, year, month, day ->
-            val c = Calendar.getInstance()
-            c.set(Calendar.YEAR, year)
-            c.set(Calendar.MONTH, month)
-            c.set(Calendar.DAY_OF_MONTH, day)
-            addListToFirebase(task.name, c.timeInMillis, true)
-        }, year, month, day).show()
+        c[Calendar.SECOND] = 0
+
+        val dateTimeDialogFragment = SwitchDateTimeDialogFragment.newInstance(
+            "Pick date and time",
+            "OK",
+            "Cancel"
+        )
+        dateTimeDialogFragment.startAtCalendarView()
+        dateTimeDialogFragment.set24HoursMode(true)
+        dateTimeDialogFragment.setDefaultDateTime(c.time)
+
+        dateTimeDialogFragment.setOnButtonClickListener(object : OnButtonClickListener {
+            override fun onPositiveButtonClick(date: Date?) {
+                Log.e("TAG", "onPositiveButtonClick: ${date}")
+                if (task.notifiable) {
+                    setOrRemoveAlarm(task)
+                }
+                addListToFirebase(task.name, date?.time ?: c.timeInMillis, true, task.id)
+            }
+
+            override fun onNegativeButtonClick(date: Date?) {
+            }
+        })
+        dateTimeDialogFragment.show(supportFragmentManager, "dialog_time")
+    }
+
+    fun priorityChanged(dataSet: ArrayList<TaskDetails>) {
+        showProgressDialog()
+
+        fireStore.collection(TO_DO_LIST).document(getAndroidId(this)).set(allData).addOnCompleteListener {
+            Log.e("TAG", "addListToFirebase: complete")
+            loadFireStoreData()
+            dismissProgressDialog()
+        }.addOnFailureListener {
+            dismissProgressDialog()
+            Log.e("TAG", "addListToFirebase: failed: ")
+            Toast.makeText(this, "Something went wrong...", Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun deleteTask(task: TaskDetails) {
@@ -166,7 +242,7 @@ class TaskListActivity : AppCompatActivity() {
         allData.taskList.find {
             it.taskName == taskName
         }?.arlTaskDetails?.removeIf {
-            it.name == task.name
+            it.id == task.id
         }
         fireStore.collection(TO_DO_LIST).document(getAndroidId(this)).set(allData).addOnCompleteListener {
             Log.e("TAG", "addListToFirebase: complete")
@@ -176,6 +252,44 @@ class TaskListActivity : AppCompatActivity() {
             dismissProgressDialog()
             Log.e("TAG", "addListToFirebase: failed: ")
             Toast.makeText(this, "Something went wrong...", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun enableDisableAlarm(task: TaskDetails) {
+        showProgressDialog()
+        allData.taskList.find {
+            it.taskName == taskName
+        }?.arlTaskDetails?.find {
+            if (it.name == task.name && it.dueDateTime == task.dueDateTime) {
+                it.notifiable = !it.notifiable
+                setOrRemoveAlarm(it)
+            }
+            it.name == task.name
+        }
+        fireStore.collection(TO_DO_LIST).document(getAndroidId(this)).set(allData).addOnCompleteListener {
+            loadFireStoreData()
+            dismissProgressDialog()
+        }.addOnFailureListener {
+            dismissProgressDialog()
+            Toast.makeText(this, "Something went wrong...", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun setOrRemoveAlarm(task: TaskDetails) {
+        runOnUiThread {
+            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
+            if (task.notifiable) {
+                val intent = Intent(this, AlarmReceiver::class.java)
+                intent.putExtra(ids, task.id)
+                intent.putExtra(name, task.name)
+                pendingIntent = PendingIntent.getBroadcast(this, Random().nextInt(Int.MAX_VALUE), intent, FLAG_IMMUTABLE)
+                val c = Calendar.getInstance()
+                c.timeInMillis = task.dueDateTime
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, c.timeInMillis, pendingIntent)
+                removeFromRemovalList(task)
+            } else {
+                addToRemovelList(task)
+            }
         }
     }
 
@@ -200,7 +314,7 @@ class TaskListActivity : AppCompatActivity() {
         allData.taskList.find {
             it.taskName == taskName
         }?.arlTaskDetails?.find {
-            it.name == task.name
+            it.id == task.id
         }?.isCompleted = isCompleted
 
         fireStore.collection(TO_DO_LIST).document(getAndroidId(this)).set(allData).addOnCompleteListener {
@@ -236,20 +350,19 @@ class TaskListActivity : AppCompatActivity() {
     *
     * Firebase calling
     * */
-    private fun addListToFirebase(toDoName: String, time: Long, isEdit: Boolean = false) {
-//        if (allData.taskList.find { it.taskName == taskName }?.arlTaskDetails?.any { it.name.trim() == toDoName.trim() } == true && !isEdit) {
-//            Toast.makeText(this, "This task is already exists.", Toast.LENGTH_SHORT).show()
-//            return
-//        }
+    private fun addListToFirebase(toDoName: String, time: Long, isEdit: Boolean = false, id: Int = 0) {
         showProgressDialog()
         if (isEdit) {
             allData.taskList.find {
                 it.taskName == taskName
             }?.arlTaskDetails?.find {
-                it.name == toDoName
+                it.id == id
             }?.dueDateTime = time
         } else {
-            val task = TaskDetails(toDoName, false, time)
+            val list = allData.taskList.find {
+                it.taskName == taskName
+            }?.arlTaskDetails
+            val task = TaskDetails(getPriority(list ?: ArrayList()), toDoName, false, time, false)
             allData.taskList.find {
                 it.taskName == taskName
             }?.arlTaskDetails?.add(task)
@@ -257,7 +370,6 @@ class TaskListActivity : AppCompatActivity() {
         fireStore.collection(TO_DO_LIST).document(getAndroidId(this)).set(allData).addOnCompleteListener {
             loadFireStoreData()
             dismissProgressDialog()
-//            etAddTask.setText("")
         }.addOnFailureListener {
             dismissProgressDialog()
             Log.e("TAG", "addListToFirebase: failed: ")
@@ -275,13 +387,16 @@ class TaskListActivity : AppCompatActivity() {
                         val taskName = (t as HashMap<*, *>).get("taskName").toString()
                         val arl = ArrayList<TaskDetails>()
                         for (tl in t.get("arlTaskDetails") as ArrayList<*>) {
+                            val p: Int = (tl as HashMap<*, *>).get("priority").toString().toInt()
                             val n: String = (tl as HashMap<*, *>).get("name").toString()
                             val c = (tl).get("completed").toString().toBoolean()
                             val d = tl.get("dueDateTime").toString().toLong()
-                            arl.add(TaskDetails(n, c, d))
+                            val noti = tl.get("notifiable").toString().toBoolean()
+                            val id = tl.get("id").toString().toInt()
+                            arl.add(TaskDetails(p, n, c, d, noti, id))
                         }
                         val single = SingleTask(taskName, arl)
-                        MyApplication.allData.taskList.add(single)
+                        allData.taskList.add(single)
                     }
                 } catch (e: java.lang.Exception) {
                     e.printStackTrace()
@@ -294,10 +409,39 @@ class TaskListActivity : AppCompatActivity() {
             }
     }
 
-    fun getTimeString(): String {
-        val date = Date(System.currentTimeMillis())
-        val simpleDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm")
-        simpleDateFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
-        return simpleDateFormat.format(date)
+    fun getPriority(data: ArrayList<TaskDetails>): Int {
+        return if (data.isNullOrEmpty()) {
+            1
+        } else {
+            data.size + 1
+        }
+    }
+
+    private fun addToRemovelList(task: TaskDetails) {
+        if (Prefs.contains(ALARMS)) {
+            val removelID = Gson().fromJson(Prefs.getString(ALARMS, ""), RemovedAlarms::class.java)
+            if (!removelID.alarms.any { it == task.id }) {
+                removelID.alarms.add(task.id)
+            }
+            Log.e("TAG", "addToRemovelList: ${removelID}")
+            Prefs.putString(ALARMS, Gson().toJson(removelID))
+            val r = Gson().fromJson(Prefs.getString(ALARMS, ""), RemovedAlarms::class.java)
+            Log.e("TAG", "addToRemovelList: ${r}")
+        } else {
+            val remove = RemovedAlarms()
+            remove.alarms.add(task.id)
+            Prefs.putString(ALARMS, Gson().toJson(remove))
+        }
+    }
+
+    private fun removeFromRemovalList(task: TaskDetails) {
+        if (Prefs.contains(ALARMS)) {
+            val removedAlarms = Gson().fromJson(Prefs.getString(ALARMS, ""), RemovedAlarms::class.java)
+            removedAlarms.alarms.removeIf {
+                it == task.id
+            }
+            Log.e("TAG", "addToRemovelList: ${removedAlarms}")
+            Prefs.putString(ALARMS, Gson().toJson(removedAlarms))
+        }
     }
 }
